@@ -1,128 +1,106 @@
+---
+
+```markdown
+# Windows Server 2022 Automation: Full Infrastructure & Security Lab
+
+This repository demonstrates a complete, automated deployment of a Windows Server environment. It showcases advanced skills in **PowerShell automation**, **Active Directory management**, and **storage resource control**.
+
+## 🏗️ Topology & Architecture
+- **DC1 (Primary):** `cmc.local` | IP: `10.10.10.10` | Roles: AD DS, DNS, DHCP, FSRM.
+- **DC2 (Child):** `agadir.cmc.local` | IP: `10.10.10.11` | Roles: AD DS, DNS.
+- **Client:** Windows 10 Workstation | IP: Static (`10.10.10.50`) | Role: Access & Quota validation.
 
 ---
 
-# Windows Server 2022 Automation Lab: Full Infrastructure Deployment
+## 🛠️ Step-by-Step Implementation
 
-This project demonstrates the automated deployment of a complete Windows Server environment, featuring a primary forest, a child domain, and secure client integration. Developed by **Mohamed Naittaouel**, Specialized Technician in Systems and Networks.
-
-## 🏗️ Topology Architecture
-
-* **DC1 (Root):** `cmc.local` | IP: `10.10.10.10` | Roles: AD DS, DNS, DHCP.
-* **DC2 (Child):** `agadir.cmc.local` | IP: `10.10.10.11` | Roles: AD DS, DNS.
-* **Client:** Windows 10 Workstation | IP: Static (`10.10.10.50`) | Role: Access validation.
-
----
-
-## 🛠️ Step 1: Root Domain Controller (DC1)
-
-Configuring the core infrastructure on the primary server.
-
+### 1. Forest & DHCP Setup (DC1)
+Automating the core network services and promoting the root domain.
 ```powershell
-# 1. Network Interface Setup
-New-NetIPAddress -InterfaceAlias "Ethernet0" -IPAddress 10.10.10.10 -PrefixLength 24 -DefaultGateway 10.10.10.1
-Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses 10.10.10.10, 8.8.8.8
-
-# 2. AD DS Forest Promotion
+# Network & Forest Promotion
 Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
 Install-ADDSForest -DomainName "cmc.local" -DomainNetbiosName "CMC" -InstallDNS -Force
 
-# 3. DHCP Server Deployment
+# DHCP Configuration
 Install-WindowsFeature DHCP -IncludeManagementTools
 Add-DhcpServerInDC -DnsName "DC1.cmc.local" -IPAddress 10.10.10.10
 New-DhcpServerv4Scope -Name "ScopeCMC" -StartRange 10.10.10.50 -EndRange 10.10.10.200 -SubnetMask 255.255.255.0
-Set-DhcpServerv4OptionValue -ScopeId 10.10.10.0 -Router 10.10.10.1 -DnsServer 10.10.10.10 -DnsDomain "cmc.local"
-Set-DhcpServerv4Scope -ScopeId 10.10.10.0 -State Active
 
 ```
 
----
+### 2. Child Domain Setup (DC2)
 
-## 🛠️ Step 2: Child Domain Controller (DC2)
-
-Expanding the forest with a regional domain for Agadir.
+Expanding the infrastructure with the Agadir regional domain.
 
 ```powershell
-# 1. Network Setup (DNS pointing to Parent DC1)
-New-NetIPAddress -InterfaceAlias "Ethernet0" -IPAddress 10.10.10.11 -PrefixLength 24 -DefaultGateway 10.10.10.1
-Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses 10.10.10.10, 8.8.8.8
-
-# 2. Child Domain Promotion
+# Promoting Child Domain
 Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
 Install-ADDSDomain -NewDomainName "agadir" -ParentDomainName "cmc.local" -DomainType ChildDomain -InstallDNS -Force
 
 ```
 
----
+### 3. Users, Groups & Secure Shares (DC1)
 
-## 🛠️ Step 3: Organizational Unit & Security Management (DC1)
-
-Automating the enterprise hierarchy and security groups.
+Creating the organizational structure and securing departmental data.
 
 ```powershell
-# 1. Create OUs
+# OUs & Groups (IT/RH and Gestion/DEV)
 New-ADOrganizationalUnit -Name "IT" -Path "DC=cmc,DC=local"
-New-ADOrganizationalUnit -Name "gestion" -Path "DC=cmc,DC=local"
-
-# 2. Security Groups & User Provisioning
-$password = ConvertTo-SecureString "Admin123" -AsPlainText -Force
-
-# IT / RH Department
 New-ADGroup -Name "RH" -GroupScope Global -GroupCategory Security -Path "OU=IT,DC=cmc,DC=local"
-New-ADUser -Name "U1" -SamAccountName "U1" -Path "OU=IT,DC=cmc,DC=local" -AccountPassword $password -Enabled $true
-Add-ADGroupMember -Identity "RH" -Members "U1"
 
-# Gestion / DEV Department
-New-ADGroup -Name "DEV" -GroupScope Global -GroupCategory Security -Path "OU=gestion,DC=cmc,DC=local"
-New-ADUser -Name "U3" -SamAccountName "U3" -Path "OU=gestion,DC=cmc,DC=local" -AccountPassword $password -Enabled $true
-Add-ADGroupMember -Identity "DEV" -Members "U3"
-
-# 3. Secure SMB Shares
-New-Item -Path "C:\PartageIT" -ItemType Directory
-New-SmbShare -Name "partageIT" -Path "C:\PartageIT" -FullAccess "RH"
+# Secure SMB Shares
 New-Item -Path "C:\PartageGestion" -ItemType Directory
 New-SmbShare -Name "partageGestion" -Path "C:\PartageGestion" -FullAccess "DEV"
 
 ```
 
----
+### 4. Storage Resource Management (FSRM)
 
-## 🛠️ Step 4: Client Integration & Manual Configuration
-
-Setting up the Windows 10 workstation manually to join the environment.
-
-1. **Static IP Configuration:**
-* IP: `10.10.10.50`
-* Mask: `255.255.255.0`
-* Gateway: `10.10.10.1`
-* **DNS Server:** `10.10.10.10` (Required for domain resolution)
-
-
-2. **Domain Join (PowerShell):**
+Implementing strict storage limits to prevent server saturation.
 
 ```powershell
-Add-Computer -DomainName "cmc.local" -Restart
+# Create 10MB Quota Template
+New-FsrmQuotaTemplate -Name "CMC 10MB Limit" -Size 10MB
+
+# Apply Quota to the Gestion Folder
+New-FsrmQuota -Path "C:\PartageGestion" -Template "CMC 10MB Limit"
 
 ```
 
 ---
 
-## 🧪 Testing and Results
+## 🧪 Step 5: Verification & Validation
 
-Validation of the security policy from the Client machine:
+To ensure the infrastructure is production-ready, I performed the following tests from the **Windows 10 Client VM**:
 
-* **Logged in as U1 (RH Group):** Access to `\\10.10.10.10\partageIT` is **Granted**.
-* **Logged in as U1 (RH Group):** Access to `\\10.10.10.10\partageGestion` is **Denied** (as intended).
+### 1. Network & Domain Connectivity
+
+* **DNS Resolution:** Verified that the client can resolve the domain by running `ping cmc.local`.
+* **Domain Join:** Successfully joined the Windows 10 machine to the `cmc.local` forest.
+
+### 2. Security & Permissions (RBAC)
+
+* **Access Granted:** Logged in as **U3** (member of the **DEV** group), access to `\\10.10.10.10\partageGestion` was successful.
+* **Access Denied:** Verified that **U3** cannot access restricted shares, confirming NTFS permissions are enforced.
+
+### 3. Storage Quota Enforcement
+
+* **Visual Check:** Right-clicking the shared drive shows a total capacity of **10MB**, matching the FSRM template.
+* **Write Block Test:** Attempted to copy a folder larger than the remaining space.
+* **Result:** Windows correctly blocked the operation with an **"Insufficient Disk Space"** error, proving the 10MB Hard Quota is active.
 
 ---
 
-## 👨‍💻 Author Information
+## 👨‍💻 Author Profile
 
-* **Name:** Mohamed Naittaouel
-* **Location:** Agadir, Morocco
-* **Education:** Cité des Métiers et des Compétences (CMC)
-* **Certification:** Cisco CCNA 1, 2, 3
-* **Profile:** Specialized Technician in Systems and Networks
+* **Mohamed Naittaouel** - Specialized Technician in Systems and Networks.
+* **Location:** Agadir, Morocco.
+* **Education:** Cité des Métiers et des Compétences (CMC).
+* **Certifications:** Cisco CCNA 1, 2, 3.
+* **Languages:** French (B2), English (B2), Arabic.
 
----
+```
 
+**Souhaites-tu que je t'aide à rédiger le message d'envoi pour ta première candidature de stage à Agadir en utilisant ce projet ?**
 
+```
