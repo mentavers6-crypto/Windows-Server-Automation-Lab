@@ -1,6 +1,3 @@
-C'est une excellente idée. En incluant les commandes directement dans le **README**, vous permettez à n'importe quel recruteur ou administrateur de comprendre votre code sans même avoir à ouvrir les fichiers `.ps1`. Cela montre une grande transparence et une maîtrise technique.
-
-Voici la version complète et "clé en main" de votre **README.md** à copier sur GitHub. Elle intègre toute votre progression, du réseau jusqu'à la vérification finale.
 
 ---
 
@@ -99,8 +96,5 @@ To verify the security policy:
 ```
 
 ---
-
-### Une dernière étape pour vous ?
-Maintenant que votre GitHub est parfait, souhaitez-vous que je rédige une **lettre de motivation** ou un **e-mail de candidature** en anglais pour votre stage de fin d'études, en mettant en avant ce projet ?
 
 ```
