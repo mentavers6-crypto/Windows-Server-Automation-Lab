@@ -1,4 +1,3 @@
-إليك النص الكامل والاحترافي لملف README.md الخاص بمشروعك، جاهز للنسخ المباشر دون أي إضافات أو تعليقات جانبية:
 
 # Windows Server 2022 Automation Lab: Full Infrastructure Deployment
 
