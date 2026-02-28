@@ -125,4 +125,4 @@ Validation of the security policy from the Client machine:
 
 ---
 
-هل ترغب في أن أقوم بكتابة نص المنشور الخاص بـ LinkedIn لتعلن فيه عن هذا المشروع؟
+
